@@ -20,7 +20,10 @@ class HandDetector:
 
         self.mp_draw = mp.solutions.drawing_utils
 
-    def find_hands(self, img, draw=True):
+    def find_hands(self, img, draw: bool = True) -> str | None:
+        if img is None:
+            return None
+
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(img_rgb)
 
@@ -31,16 +34,23 @@ class HandDetector:
 
         return img
 
-    def find_position(self, img, hand=0, draw=True):
+    def find_position(self, img, hand: int = 0, draw: bool = True) -> list[list[int]]:
         lm_list = []
-        if self.results.multi_hand_landmarks:
-            tracked_hand = self.results.multi_hand_landmarks[hand]
-            for id, lm in enumerate(tracked_hand.landmark):
-                h, w, c = img.shape
-                cx, cy = int(lm.x * w), int(lm.y * h)
-                lm_list.append([id, cx, cy])
-                if draw:
-                    if id == 4 or id == 8:
-                        cv2.circle(img, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
+
+        if img is None or self.results is None or not self.results.multi_hand_landmarks:
+            return lm_list
+
+        if hand < 0 or hand >= len(self.results.multi_hand_landmarks):
+            return lm_list
+
+        tracked_hand = self.results.multi_hand_landmarks[hand]
+
+        h, w, _ = img.shape
+        for landmark_id, lm in enumerate(tracked_hand.landmark):
+            cx, cy = int(lm.x * w), int(lm.y * h)
+            lm_list.append([landmark_id, cx, cy])
+
+            if draw and landmark_id in (4, 8):
+                cv2.circle(img, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
 
         return lm_list
