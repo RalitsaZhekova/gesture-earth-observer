@@ -51,6 +51,8 @@ class GestureSessionState:
     mode_locked_until: float = 0.0
     pending_action: GestureAction = GestureAction.NONE
     action_locked_until: float = 0.0
+    zoom_anchor_distance: float | None = None
+    zoom_anchor_level: float | None = None
 
     @property
     def volume_mode(self) -> bool:
