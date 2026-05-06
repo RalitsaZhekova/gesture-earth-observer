@@ -34,7 +34,9 @@ class HandDetector:
 
         return img
 
-    def find_position(self, img, hand: int = 0, draw: bool = True) -> list[list[int]]:
+    def find_position(self, img, hand: int = 0, landmark_ids = None, draw: bool = True) -> list[list[int]]:
+        if landmark_ids is None:
+            landmark_ids = []
         lm_list = []
 
         if img is None or self.results is None or not self.results.multi_hand_landmarks:
@@ -50,7 +52,7 @@ class HandDetector:
             cx, cy = int(lm.x * w), int(lm.y * h)
             lm_list.append([landmark_id, cx, cy])
 
-            if draw and landmark_id in (4, 8):
+            if draw and landmark_id in landmark_ids:
                 cv2.circle(img, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
 
         return lm_list
