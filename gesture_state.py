@@ -2,10 +2,11 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class GestureMode(Enum):
+class GestureMode(str, Enum):
     IDLE = "idle"
     VOLUME = "volume"
     NAVIGATION = "navigation"
+    SWIPE = "swipe"
     ZOOM = "zoom"
     PAN = "pan"
     COMMAND = "command"
@@ -17,6 +18,19 @@ class GestureAction(str, Enum):
     SWIPE_RIGHT = "swipe_right"
     RESET_VIEW = "reset_view"
     TOGGLE_COMMAND = "toggle_command"
+
+
+VIEWER_MODES = {
+    GestureMode.NAVIGATION,
+    GestureMode.SWIPE,
+    GestureMode.ZOOM,
+    GestureMode.PAN,
+}
+
+SWIPE_ACTION_MODES = {
+    GestureMode.NAVIGATION,
+    GestureMode.SWIPE,
+}
 
 
 @dataclass(frozen=True)
@@ -43,16 +57,36 @@ class TransitionConfig:
 class GestureSessionState:
     active_mode: GestureMode = GestureMode.IDLE
     previous_mode: GestureMode = GestureMode.IDLE
+
     pinch_frames: int = 0
     pinch_armed: bool = True
     stable_value: float | None = None
     stable_since: float | None = None
+
     mode_entered_at: float | None = None
     mode_locked_until: float = 0.0
+
     pending_action: GestureAction = GestureAction.NONE
     action_locked_until: float = 0.0
+
     zoom_anchor_distance: float | None = None
     zoom_anchor_level: float | None = None
+
+    pan_pinch_frames: int = 0
+    pan_pinch_armed: bool = True
+    pan_stable_value: float | None = None
+    pan_stable_since: float | None = None
+    pan_anchor_x: float | None = None
+    pan_anchor_y: float | None = None
+    pan_anchor_lat: float | None = None
+    pan_anchor_lng: float | None = None
+
+    swipe_open_frames: int = 0
+    swipe_armed: bool = True
+    swipe_entry_x: float | None = None
+    swipe_entry_y: float | None = None
+    swipe_started_at: float | None = None
+    swipe_last_open_at: float | None = None
 
     @property
     def volume_mode(self) -> bool:
@@ -68,11 +102,7 @@ class GestureSessionState:
 
     @property
     def viewer_mode(self) -> bool:
-        return self.active_mode in {
-            GestureMode.NAVIGATION,
-            GestureMode.ZOOM,
-            GestureMode.PAN
-        }
+        return self.active_mode in VIEWER_MODES
 
 
 class GestureStateMachine:
@@ -94,15 +124,15 @@ class GestureStateMachine:
         now: float,
         cooldown_seconds: float | None = None
     ) -> bool:
-        if state.active_mode == mode:
-            return False
-        if not self.can_enter_mode(state, now):
+        if state.active_mode == mode or not self.can_enter_mode(state, now):
             return False
 
         state.previous_mode = state.active_mode
         state.active_mode = mode
         state.mode_entered_at = now
-        state.mode_locked_until = now + (cooldown_seconds or self.transition_config.mode_cooldown_seconds)
+        state.mode_locked_until = now + (
+            cooldown_seconds or self.transition_config.mode_cooldown_seconds
+        )
         self.clear_transient_tracking(state)
         return True
 
@@ -118,10 +148,16 @@ class GestureStateMachine:
     def enter_pan(self, state: GestureSessionState, now: float) -> bool:
         return self.enter_mode(state, GestureMode.PAN, now)
 
+    def enter_swipe(self, state: GestureSessionState, now: float) -> bool:
+        return self.enter_mode(state, GestureMode.SWIPE, now)
+
     def toggle_command_mode(self, state: GestureSessionState, now: float) -> bool:
-        if state.active_mode == GestureMode.COMMAND:
-            return self.exit_to_navigation(state, now)
-        return self.enter_mode(state, GestureMode.COMMAND, now)
+        next_mode = (
+            GestureMode.NAVIGATION
+            if state.active_mode == GestureMode.COMMAND
+            else GestureMode.COMMAND
+        )
+        return self.enter_mode(state, next_mode, now)
 
     @staticmethod
     def can_emit_action(state: GestureSessionState, now: float) -> bool:
@@ -138,7 +174,9 @@ class GestureStateMachine:
             return False
 
         state.pending_action = action
-        state.action_locked_until = now + (cooldown_seconds or self.transition_config.swipe_cooldown_seconds)
+        state.action_locked_until = now + (
+            cooldown_seconds or self.transition_config.swipe_cooldown_seconds
+        )
         return True
 
     @staticmethod
@@ -147,25 +185,34 @@ class GestureStateMachine:
         state.pending_action = GestureAction.NONE
         return action
 
-    def request_swipe_left(self, state: GestureSessionState, now: float) -> bool:
-        if state.active_mode != GestureMode.NAVIGATION:
+    def request_swipe(self, state: GestureSessionState, action: GestureAction, now: float) -> bool:
+        if state.active_mode not in SWIPE_ACTION_MODES:
             return False
-        return self.emit_action(state, GestureAction.SWIPE_LEFT, now)
+
+        emitted = self.emit_action(state, action, now)
+
+        if emitted:
+            self.exit_to_navigation(state, now)
+
+        return emitted
+
+    def request_swipe_left(self, state: GestureSessionState, now: float) -> bool:
+        return self.request_swipe(state, GestureAction.SWIPE_LEFT, now)
 
     def request_swipe_right(self, state: GestureSessionState, now: float) -> bool:
-        if state.active_mode != GestureMode.NAVIGATION:
-            return False
-        return self.emit_action(state, GestureAction.SWIPE_RIGHT, now)
+        return self.request_swipe(state, GestureAction.SWIPE_RIGHT, now)
 
     def request_reset_view(self, state: GestureSessionState, now: float) -> bool:
         emitted = self.emit_action(
             state,
             GestureAction.RESET_VIEW,
             now,
-            cooldown_seconds=self.transition_config.reset_cooldown_seconds
+            cooldown_seconds=self.transition_config.reset_cooldown_seconds,
         )
+
         if emitted:
             self.exit_to_navigation(state, now)
+
         return emitted
 
     @staticmethod
@@ -178,10 +225,10 @@ class GestureStateMachine:
 
 class PinchModeController:
     def __init__(
-            self,
-            mode: GestureMode,
-            toggle_config: PinchToggleConfig,
-            exit_config: StableHoldExitConfig
+        self,
+        mode: GestureMode,
+        toggle_config: PinchToggleConfig,
+        exit_config: StableHoldExitConfig,
     ) -> None:
         self.mode = mode
         self.toggle_config = toggle_config
@@ -199,31 +246,38 @@ class PinchModeController:
 
     def update_toggle(self, value: float, state: GestureSessionState) -> None:
         if value <= self.toggle_config.enter_distance:
-            state.pinch_frames += 1
-            if state.pinch_armed and state.pinch_frames >= self.toggle_config.hold_frames:
-                self.toggle_mode(state)
-                state.pinch_armed = False
+            self._handle_closed_pinch(state)
         elif value >= self.toggle_config.release_distance:
-            state.pinch_frames = 0
-            state.pinch_armed = True
+            self._rearm_pinch(state)
+
+    def _handle_closed_pinch(self, state: GestureSessionState) -> None:
+        state.pinch_frames += 1
+
+        if state.pinch_armed and state.pinch_frames >= self.toggle_config.hold_frames:
+            self.toggle_mode(state)
+            state.pinch_armed = False
+
+    @staticmethod
+    def _rearm_pinch(state: GestureSessionState) -> None:
+        state.pinch_frames = 0
+        state.pinch_armed = True
 
     def toggle_mode(self, state: GestureSessionState) -> None:
         if state.active_mode == self.mode:
             self.exit_mode(state)
-            return
-
-        state.active_mode = self.mode
-        self.clear_stable_hold(state)
+        else:
+            state.active_mode = self.mode
+            self.clear_stable_hold(state)
 
     def exit_mode(self, state: GestureSessionState) -> None:
         state.active_mode = GestureMode.IDLE
         self.clear_stable_hold(state)
 
     def should_exit_on_stable_hold(
-            self,
-            value: float,
-            state: GestureSessionState,
-            now: float
+        self,
+        value: float,
+        state: GestureSessionState,
+        now: float,
     ) -> bool:
         if state.active_mode != self.mode:
             self.clear_stable_hold(state)
