@@ -1,0 +1,20 @@
+from pathlib import Path
+
+
+THUMB_TIP_ID = 4
+THUMB_IP_ID = 3
+WRIST_ID = 0
+INDEX_MCP_ID = 5
+INDEX_PIP_ID = 6
+INDEX_TIP_ID = 8
+MIDDLE_MCP_ID = 9
+MIDDLE_PIP_ID = 10
+MIDDLE_TIP_ID = 12
+RING_PIP_ID = 14
+RING_TIP_ID = 16
+PINKY_MCP_ID = 17
+PINKY_PIP_ID = 18
+PINKY_TIP_ID = 20
+WINDOW_NAME = "Gesture Control"
+WEB_ROOT = Path(__file__).resolve().parent / "web"
+MAP_TEMPLATE_PATH = WEB_ROOT / "map_view.html"
