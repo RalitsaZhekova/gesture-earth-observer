@@ -158,6 +158,9 @@ env.bak/
 venv.bak/
 
 .idea/
+data/
+models/
+screenshots/
 
 # Spyder project settings
 .spyderproject
