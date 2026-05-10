@@ -159,7 +159,8 @@ venv.bak/
 
 .idea/
 data/
-models/
+models/*
+!models/class_names.json
 screenshots/
 
 # Spyder project settings

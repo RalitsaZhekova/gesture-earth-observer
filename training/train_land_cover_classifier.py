@@ -73,3 +73,17 @@ model.compile(
 )
 
 model.summary()
+
+EPOCHS = 5
+history = model.fit(
+    train_dataset,
+    validation_data=validation_dataset,
+    epochs=EPOCHS
+)
+
+MODEL_DIR = PROJECT_ROOT / "models"
+MODEL_DIR.mkdir(exist_ok=True)
+
+MODEL_PATH = MODEL_DIR / "land_cover_classifier.keras"
+model.save(MODEL_PATH)
+print(f"Saved model to {MODEL_PATH}")
