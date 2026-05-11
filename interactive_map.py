@@ -27,7 +27,7 @@ from hand_geometry import (
 from gestures.classification import clear_classification_tracking, update_classification_gesture
 from gestures.feedback import draw_gesture_feedback, draw_ui
 from gestures.pan import clear_pan_tracking, update_pan_mode
-from gestures.swipe import clear_swipe_tracking, update_swipe_mode
+from gestures.swipe import clear_swipe_tracking, is_open_palm, update_swipe_mode
 from gestures.zoom import clear_zoom_tracking, update_zoom_mode
 from landmarks import (
     INDEX_TIP_ID,
@@ -84,6 +84,7 @@ def reset_tracking_when_no_hand(
 def update_active_gesture(
     zoom_measurement: DistanceMeasurement,
     pan_measurement: DistanceMeasurement,
+    palm_is_open: bool,
     gesture_state: GestureSessionState,
     zoom_controller: PinchModeController,
     zoom_config: ZoomGestureConfig,
@@ -111,6 +112,12 @@ def update_active_gesture(
         return zoom_measurement
 
     if gesture_state.active_mode == GestureMode.PAN:
+        if palm_is_open:
+            clear_pan_tracking(gesture_state)
+            state_machine.exit_to_navigation(gesture_state, now)
+            shared_map_state.update(active_mode=gesture_state.active_mode.value, updated_at=now)
+            return None
+
         update_pan_mode(
             pan_measurement,
             gesture_state,
@@ -135,6 +142,10 @@ def update_active_gesture(
     if gesture_state.active_mode == GestureMode.ZOOM:
         clear_pan_tracking(gesture_state)
         return zoom_measurement
+
+    if palm_is_open:
+        clear_pan_tracking(gesture_state)
+        return None
 
     update_pan_mode(
         pan_measurement,
@@ -190,6 +201,7 @@ def handle_landmarks(
         shared_map_state,
         now,
     )
+    palm_is_open = is_open_palm(landmarks)
 
     zoom_measurement = measure_distance_between_landmarks(
         landmarks,
@@ -206,6 +218,7 @@ def handle_landmarks(
     active_measurement = update_active_gesture(
         zoom_measurement,
         pan_measurement,
+        palm_is_open,
         gesture_state,
         zoom_controller,
         zoom_config,
