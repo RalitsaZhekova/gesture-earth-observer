@@ -218,6 +218,24 @@ body {
   opacity: 1;
 }
 
+.classify-button {
+  position: absolute;
+  top: 180px;
+  left: 24px;
+  z-index: 1000;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #101820;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.classify-button:hover {
+  opacity: 0.85;
+}
+
 @media (max-width: 720px) {
   .status,
   .satellite-card {

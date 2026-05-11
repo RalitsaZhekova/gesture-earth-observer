@@ -265,6 +265,55 @@ function syncManualMapStatus() {
 
 map.on("moveend zoomend", syncManualMapStatus);
 
+async function captureMapCenterCrop() {
+    const mapElement = document.getElementById("map");
+
+    if (!mapElement) {
+        console.error("Map element not found");
+        return;
+    }
+
+    const canvas = await html2canvas(mapElement, {
+        useCORS: true,
+        backgroundColor: null
+    });
+
+    const cropSize = 350;
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    const cropX = centerX - cropSize / 2;
+    const cropY = centerY - cropSize / 2;
+
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = cropSize;
+    cropCanvas.height = cropSize;
+
+    const ctx = cropCanvas.getContext("2d");
+
+    ctx.drawImage(
+        canvas,
+        cropX,
+        cropY,
+        cropSize,
+        cropSize,
+        0,
+        0,
+        cropSize,
+        cropSize
+    );
+
+    const link = document.createElement("a");
+    link.download = "latest_map_crop.png";
+    link.href = cropCanvas.toDataURL("image/png");
+    link.click();
+}
+
+document
+    .getElementById("classify-map-button")
+    .addEventListener("click", captureMapCenterCrop);
+
 renderTrack(0, 5);
 pollState();
 setInterval(pollState, CONFIG.pollIntervalMs);
