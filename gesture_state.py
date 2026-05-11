@@ -88,6 +88,10 @@ class GestureSessionState:
     swipe_started_at: float | None = None
     swipe_last_open_at: float | None = None
 
+    classification_frames: int = 0
+    classification_armed: bool = True
+    classification_locked_until: float = 0.0
+
     @property
     def volume_mode(self) -> bool:
         return self.active_mode == GestureMode.VOLUME

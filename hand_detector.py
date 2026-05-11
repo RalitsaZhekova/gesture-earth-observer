@@ -64,3 +64,22 @@ class HandDetector:
                 cv2.circle(img, (x, y), 10, (255, 0, 255), cv2.FILLED)
 
         return landmarks
+
+    def find_all_positions(
+        self,
+        img,
+        landmark_ids: list[int] | None = None,
+        draw: bool = True,
+    ) -> list[list[list[int]]]:
+        landmark_ids = landmark_ids or []
+        hands_landmarks: list[list[list[int]]] = []
+
+        if not self.results or not self.results.multi_hand_landmarks:
+            return hands_landmarks
+
+        for hand_id in range(len(self.results.multi_hand_landmarks)):
+            hands_landmarks.append(
+                self.find_position(img, hand_id, landmark_ids, draw)
+            )
+
+        return hands_landmarks

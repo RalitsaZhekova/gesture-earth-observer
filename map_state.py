@@ -18,6 +18,7 @@ class MapViewState:
     satellite_caption: str = SATELLITE_PRESETS[0].caption
     transition_direction: str = "none"
     transition_nonce: int = 0
+    classification_gesture_nonce: int = 0
     updated_at: float = 0.0
 
     def snapshot(self) -> dict[str, float | str]:
@@ -33,6 +34,7 @@ class MapViewState:
             "satellite_caption": self.satellite_caption,
             "transition_direction": self.transition_direction,
             "transition_nonce": self.transition_nonce,
+            "classification_gesture_nonce": self.classification_gesture_nonce,
             "updated_at": self.updated_at
         }
 

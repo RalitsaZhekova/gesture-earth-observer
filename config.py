@@ -39,6 +39,12 @@ class SwipeGestureConfig:
 
 
 @dataclass(frozen=True)
+class ClassificationGestureConfig:
+    hold_frames: int = 12
+    cooldown_seconds: float = 1.5
+
+
+@dataclass(frozen=True)
 class SatellitePreset:
     name: str
     caption: str

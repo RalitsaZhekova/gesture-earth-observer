@@ -5,6 +5,7 @@ import numpy as np
 
 from config import (
     CameraConfig,
+    ClassificationGestureConfig,
     MapServerConfig,
     PanGestureConfig,
     SwipeGestureConfig,
@@ -23,6 +24,7 @@ from hand_geometry import (
     DistanceMeasurement,
     measure_distance_between_landmarks,
 )
+from gestures.classification import clear_classification_tracking, update_classification_gesture
 from gestures.feedback import draw_gesture_feedback, draw_ui
 from gestures.pan import clear_pan_tracking, update_pan_mode
 from gestures.swipe import clear_swipe_tracking, update_swipe_mode
@@ -72,6 +74,7 @@ def reset_tracking_when_no_hand(
     zoom_controller.reset_tracking(gesture_state)
     clear_zoom_tracking(gesture_state)
     clear_pan_tracking(gesture_state)
+    clear_classification_tracking(gesture_state, rearm=True)
 
     if gesture_state.active_mode != GestureMode.SWIPE:
         clear_swipe_tracking(gesture_state, rearm=True)
@@ -152,6 +155,7 @@ def update_active_gesture(
 def handle_landmarks(
     camera_frame: np.ndarray,
     landmarks: list[list[int]],
+    hands_landmarks: list[list[list[int]]],
     gesture_state: GestureSessionState,
     state_machine: GestureStateMachine,
     zoom_controller: PinchModeController,
@@ -159,9 +163,25 @@ def handle_landmarks(
     pan_config: PanGestureConfig,
     pan_exit_config: StableHoldExitConfig,
     swipe_config: SwipeGestureConfig,
+    classification_config: ClassificationGestureConfig,
     shared_map_state: SharedMapState,
     now: float,
 ) -> None:
+    classification_active = update_classification_gesture(
+        hands_landmarks,
+        gesture_state,
+        classification_config,
+        shared_map_state,
+        now,
+    )
+    if classification_active:
+        clear_swipe_tracking(gesture_state, rearm=True)
+        clear_zoom_tracking(gesture_state)
+        clear_pan_tracking(gesture_state)
+        publish_mode(gesture_state, shared_map_state, now)
+        draw_gesture_feedback(camera_frame, None, gesture_state)
+        return
+
     update_swipe_mode(
         landmarks,
         gesture_state,
@@ -211,6 +231,7 @@ def main() -> None:
     zoom_config = ZoomGestureConfig()
     pan_config = PanGestureConfig()
     swipe_config = SwipeGestureConfig()
+    classification_config = ClassificationGestureConfig()
     server_config = MapServerConfig()
 
     zoom_controller = PinchModeController(
@@ -248,7 +269,7 @@ def main() -> None:
             camera_frame = cv2.flip(camera_frame, 1)
             camera_frame = detector.find_hands(camera_frame)
 
-            landmarks = detector.find_position(
+            hands_landmarks = detector.find_all_positions(
                 camera_frame,
                 landmark_ids=[
                     THUMB_TIP_ID,
@@ -256,11 +277,13 @@ def main() -> None:
                     MIDDLE_TIP_ID,
                 ],
             )
+            landmarks = hands_landmarks[0] if hands_landmarks else []
 
             if landmarks:
                 handle_landmarks(
                     camera_frame,
                     landmarks,
+                    hands_landmarks,
                     gesture_state,
                     state_machine,
                     zoom_controller,
@@ -268,6 +291,7 @@ def main() -> None:
                     pan_config,
                     pan_exit_config,
                     swipe_config,
+                    classification_config,
                     shared_map_state,
                     now,
                 )
