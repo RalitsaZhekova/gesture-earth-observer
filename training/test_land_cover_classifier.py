@@ -1,33 +1,23 @@
 from pathlib import Path
-import json
-
-import numpy as np
-import tensorflow as tf
-from PIL import Image
+import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(PROJECT_ROOT))
 
-MODEL_PATH = PROJECT_ROOT / "models" / "land_cover_classifier.keras"
-CLASS_NAMES_PATH = PROJECT_ROOT / "models" / "class_names.json"
+from land_cover_classifier import LandCoverClassifier
 
-TEST_IMAGE_PATH = PROJECT_ROOT / "data" / "Forest" / "Forest_1.jpg"
 
-model = tf.keras.models.load_model(MODEL_PATH)
+if len(sys.argv) > 1:
+    image_path = Path(sys.argv[1])
+else:
+    image_path = PROJECT_ROOT / "data" / "Forest" / "Forest_1.jpg"
 
-with open(CLASS_NAMES_PATH, "r") as file:
-    class_names = json.load(file)
+if not image_path.exists():
+    raise FileNotFoundError(f"Image not found: {image_path}")
 
-image = Image.open(TEST_IMAGE_PATH).convert("RGB")
-image = image.resize((224, 224))
+classifier = LandCoverClassifier()
+result = classifier.predict_image(image_path)
 
-image_array = np.array(image)
-image_batch = np.expand_dims(image_array, axis=0)
-
-predictions = model.predict(image_batch)
-
-predicted_index = np.argmax(predictions[0])
-predicted_class = class_names[predicted_index]
-confidence = predictions[0][predicted_index]
-
-print("Predicted class:", predicted_class)
-print(f"Confidence: {confidence:.2%}")
+print("Image:", image_path)
+print("Predicted class:", result["class"])
+print(f"Confidence: {result['confidence']:.2%}")
