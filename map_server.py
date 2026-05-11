@@ -14,6 +14,8 @@ SCREENSHOT_PATH = SCREENSHOTS_DIR / "latest_map_crop.png"
 
 
 def build_map_handler(shared_state: SharedMapState) -> type[BaseHTTPRequestHandler]:
+    classifier = None
+
     class MapRequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             if self.path in {"/", "/index.html"}:
@@ -34,6 +36,10 @@ def build_map_handler(shared_state: SharedMapState) -> type[BaseHTTPRequestHandl
         def do_POST(self) -> None:  # noqa: N802
             if self.path == "/screenshots/latest_map_crop.png":
                 self._save_screenshot()
+                return
+
+            if self.path == "/classify/latest_map_crop.png":
+                self._classify_screenshot()
                 return
 
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -92,6 +98,29 @@ def build_map_handler(shared_state: SharedMapState) -> type[BaseHTTPRequestHandl
             SCREENSHOT_PATH.write_bytes(payload)
 
             self._send_json({"saved_to": str(SCREENSHOT_PATH)})
+
+        def _classify_screenshot(self) -> None:
+            nonlocal classifier
+
+            if not SCREENSHOT_PATH.exists():
+                self.send_error(HTTPStatus.NOT_FOUND, "Screenshot not found")
+                return
+
+            try:
+                if classifier is None:
+                    from land_cover_classifier import LandCoverClassifier
+
+                    classifier = LandCoverClassifier()
+
+                result = classifier.predict_image(SCREENSHOT_PATH)
+            except Exception as error:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+                return
+
+            self._send_json({
+                "category": result["class"],
+                "confidence": result["confidence"],
+            })
 
     return MapRequestHandler
 

@@ -44,7 +44,12 @@ const elements = {
     satelliteCaption: $("satelliteCaption"),
     satelliteTrack: $("satelliteTrack"),
     transitionBanner: $("transitionBanner"),
-    transitionTitle: $("transitionTitle")
+    transitionTitle: $("transitionTitle"),
+    classifyButton: $("classify-map-button"),
+    classificationCard: $("classificationCard"),
+    classificationStatus: $("classificationStatus"),
+    classificationResult: $("classificationResult"),
+    classificationConfidence: $("classificationConfidence")
 };
 
 const appState = {
@@ -265,6 +270,26 @@ function syncManualMapStatus() {
 
 map.on("moveend zoomend", syncManualMapStatus);
 
+function setClassificationState(status, result = "No result yet", confidence = "") {
+    elements.classificationCard.classList.add("active");
+    elements.classificationStatus.textContent = status;
+    elements.classificationResult.textContent = result;
+    elements.classificationConfidence.textContent = confidence;
+}
+
+function getPngBlob(canvas) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob === null) {
+                reject(new Error("Could not create image"));
+                return;
+            }
+
+            resolve(blob);
+        }, "image/png");
+    });
+}
+
 async function captureMapCenterCrop() {
     const mapElement = document.getElementById("map");
 
@@ -273,48 +298,73 @@ async function captureMapCenterCrop() {
         return;
     }
 
-    const canvas = await html2canvas(mapElement, {
-        useCORS: true,
-        backgroundColor: null
-    });
+    elements.classifyButton.disabled = true;
+    setClassificationState("Capturing map area...");
 
-    const cropSize = 350;
+    try {
+        const canvas = await html2canvas(mapElement, {
+            useCORS: true,
+            backgroundColor: null
+        });
 
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+        const cropSize = 350;
 
-    const cropX = centerX - cropSize / 2;
-    const cropY = centerY - cropSize / 2;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
 
-    const cropCanvas = document.createElement("canvas");
-    cropCanvas.width = cropSize;
-    cropCanvas.height = cropSize;
+        const cropX = centerX - cropSize / 2;
+        const cropY = centerY - cropSize / 2;
 
-    const ctx = cropCanvas.getContext("2d");
+        const cropCanvas = document.createElement("canvas");
+        cropCanvas.width = cropSize;
+        cropCanvas.height = cropSize;
 
-    ctx.drawImage(
-        canvas,
-        cropX,
-        cropY,
-        cropSize,
-        cropSize,
-        0,
-        0,
-        cropSize,
-        cropSize
-    );
+        const ctx = cropCanvas.getContext("2d");
 
-    cropCanvas.toBlob(async (blob) => {
-        await fetch("/screenshots/latest_map_crop.png", {
+        ctx.drawImage(
+            canvas,
+            cropX,
+            cropY,
+            cropSize,
+            cropSize,
+            0,
+            0,
+            cropSize,
+            cropSize
+        );
+
+        const blob = await getPngBlob(cropCanvas);
+        const saveResponse = await fetch("/screenshots/latest_map_crop.png", {
             method: "POST",
             body: blob
         });
-    }, "image/png");
+
+        if (!saveResponse.ok) {
+            throw new Error(`Save failed: ${saveResponse.status}`);
+        }
+
+        setClassificationState("Image saved. Classification in progress...");
+
+        const classifyResponse = await fetch("/classify/latest_map_crop.png", {
+            method: "POST"
+        });
+
+        if (!classifyResponse.ok) {
+            throw new Error(`Classification failed: ${classifyResponse.status}`);
+        }
+
+        const result = await classifyResponse.json();
+        const confidence = `${(Number(result.confidence) * 100).toFixed(1)}% confidence`;
+
+        setClassificationState("Classification complete", result.category, confidence);
+    } catch (error) {
+        setClassificationState("Classification failed", "Try again", error.message);
+    } finally {
+        elements.classifyButton.disabled = false;
+    }
 }
 
-document
-    .getElementById("classify-map-button")
-    .addEventListener("click", captureMapCenterCrop);
+elements.classifyButton.addEventListener("click", captureMapCenterCrop);
 
 renderTrack(0, 5);
 pollState();

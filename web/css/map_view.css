@@ -224,16 +224,66 @@ body {
   left: 24px;
   z-index: 1000;
   padding: 10px 14px;
-  border: none;
-  border-radius: 10px;
-  background: #101820;
-  color: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-strong);
+  color: var(--text);
   font-weight: 700;
   cursor: pointer;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
 }
 
 .classify-button:hover {
   opacity: 0.85;
+}
+
+.classify-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.classification-card {
+  position: absolute;
+  top: 230px;
+  left: 24px;
+  z-index: 1000;
+  width: min(300px, calc(100vw - 48px));
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+}
+
+.classification-card.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.classification-status {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.classification-result {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.classification-confidence {
+  margin-top: 6px;
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 @media (max-width: 720px) {
@@ -246,5 +296,10 @@ body {
   .satellite-card h2,
   .title {
     font-size: 24px;
+  }
+
+  .classify-button,
+  .classification-card {
+    left: 14px;
   }
 }
