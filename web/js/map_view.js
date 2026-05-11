@@ -304,10 +304,12 @@ async function captureMapCenterCrop() {
         cropSize
     );
 
-    const link = document.createElement("a");
-    link.download = "latest_map_crop.png";
-    link.href = cropCanvas.toDataURL("image/png");
-    link.click();
+    cropCanvas.toBlob(async (blob) => {
+        await fetch("/screenshots/latest_map_crop.png", {
+            method: "POST",
+            body: blob
+        });
+    }, "image/png");
 }
 
 document

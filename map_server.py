@@ -9,6 +9,9 @@ from config import MapServerConfig
 from landmarks import MAP_TEMPLATE_PATH, WEB_ROOT
 from map_state import SharedMapState
 
+SCREENSHOTS_DIR = Path(__file__).resolve().parent / "screenshots"
+SCREENSHOT_PATH = SCREENSHOTS_DIR / "latest_map_crop.png"
+
 
 def build_map_handler(shared_state: SharedMapState) -> type[BaseHTTPRequestHandler]:
     class MapRequestHandler(BaseHTTPRequestHandler):
@@ -24,6 +27,13 @@ def build_map_handler(shared_state: SharedMapState) -> type[BaseHTTPRequestHandl
             asset_path = self._resolve_asset_path(self.path)
             if asset_path is not None:
                 self._send_file(asset_path)
+                return
+
+            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+
+        def do_POST(self) -> None:  # noqa: N802
+            if self.path == "/screenshots/latest_map_crop.png":
+                self._save_screenshot()
                 return
 
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -73,6 +83,15 @@ def build_map_handler(shared_state: SharedMapState) -> type[BaseHTTPRequestHandl
             self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
             self.wfile.write(raw)
+
+        def _save_screenshot(self) -> None:
+            content_length = int(self.headers.get("Content-Length", 0))
+            payload = self.rfile.read(content_length)
+
+            SCREENSHOTS_DIR.mkdir(exist_ok=True)
+            SCREENSHOT_PATH.write_bytes(payload)
+
+            self._send_json({"saved_to": str(SCREENSHOT_PATH)})
 
     return MapRequestHandler
 
