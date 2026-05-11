@@ -42,9 +42,6 @@ def draw_ui(
     current_time: float,
 ) -> float:
     fps = 1 / (current_time - previous_time) if previous_time else 0
-    zoom_level = float(map_snapshot["zoom_level"])
-    center_lat = float(map_snapshot["center_lat"])
-    center_lng = float(map_snapshot["center_lng"])
     cv2.putText(
         frame,
         f"Mode: {gesture_state.active_mode.value.upper()}",
@@ -54,46 +51,46 @@ def draw_ui(
         (0, 255, 0),
         2,
     )
-    cv2.putText(
-        frame,
-        f"Map zoom: {zoom_level:.1f}",
-        (30, 80),
-        cv2.FONT_HERSHEY_PLAIN,
-        2,
-        (0, 255, 255),
-        2,
-    )
-    cv2.putText(
-        frame,
-        "Open palm: swipe satellites. Thumb+index: zoom. Index+middle closed: pan.",
-        (30, 115),
-        cv2.FONT_HERSHEY_PLAIN,
-        0.85,
-        (255, 255, 255),
-        2,
-    )
-    cv2.putText(
-        frame,
-        f"Center: {center_lat:.4f}, {center_lng:.4f}",
-        (30, 145),
-        cv2.FONT_HERSHEY_PLAIN,
-        1.2,
-        (255, 255, 255),
-        2,
-    )
-    cv2.putText(
-        frame,
-        "Imagery map opens in your browser at http://127.0.0.1:8765",
-        (30, 175),
-        cv2.FONT_HERSHEY_PLAIN,
-        1.0,
-        (255, 255, 255),
-        2,
-    )
+    # cv2.putText(
+    #     frame,
+    #     f"Map zoom: {float(map_snapshot['zoom_level']):.1f}",
+    #     (30, 80),
+    #     cv2.FONT_HERSHEY_PLAIN,
+    #     2,
+    #     (0, 255, 255),
+    #     2,
+    # )
+    # cv2.putText(
+    #     frame,
+    #     "Open palm: swipe. Two palms: classify or clear result. Thumb+index: zoom. Index+middle: pan.",
+    #     (30, 115),
+    #     cv2.FONT_HERSHEY_PLAIN,
+    #     0.85,
+    #     (255, 255, 255),
+    #     2,
+    # )
+    # cv2.putText(
+    #     frame,
+    #     f"Center: {float(map_snapshot['center_lat']):.4f}, {float(map_snapshot['center_lng']):.4f}",
+    #     (30, 145),
+    #     cv2.FONT_HERSHEY_PLAIN,
+    #     1.2,
+    #     (255, 255, 255),
+    #     2,
+    # )
+    # cv2.putText(
+    #     frame,
+    #     "Imagery map opens in your browser at http://127.0.0.1:8765",
+    #     (30, 175),
+    #     cv2.FONT_HERSHEY_PLAIN,
+    #     1.0,
+    #     (255, 255, 255),
+    #     2,
+    # )
     cv2.putText(
         frame,
         f"FPS: {int(fps)}",
-        (30, 210),
+        (30, 80),
         cv2.FONT_HERSHEY_PLAIN,
         2,
         (255, 0, 0),
