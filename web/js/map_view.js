@@ -45,8 +45,7 @@ const elements = {
     satelliteTrack: $("satelliteTrack"),
     transitionBanner: $("transitionBanner"),
     transitionTitle: $("transitionTitle"),
-    classifyButton: $("classify-map-button"),
-    classificationCard: $("classificationCard"),
+    classificationOverlay: $("classificationOverlay"),
     classificationStatus: $("classificationStatus"),
     classificationResult: $("classificationResult"),
     classificationConfidence: $("classificationConfidence")
@@ -55,6 +54,8 @@ const elements = {
 const appState = {
     lastUpdatedAt: 0,
     lastTransitionNonce: 0,
+    lastClassificationGestureNonce: 0,
+    classificationState: "idle",
     applyingRemoteUpdate: false,
     syncFrameHandle: null,
     desiredMapState: null
@@ -252,6 +253,7 @@ async function pollState() {
         syncStatus(state);
 
         const transitionTriggered = handleTransition(state);
+        handleClassificationGesture(state);
         syncMapPosition(state, transitionTriggered);
     } catch {
         elements.mode.textContent = "DISCONNECTED";
@@ -271,10 +273,37 @@ function syncManualMapStatus() {
 map.on("moveend zoomend", syncManualMapStatus);
 
 function setClassificationState(status, result = "No result yet", confidence = "") {
-    elements.classificationCard.classList.add("active");
+    elements.classificationOverlay.classList.add("active");
     elements.classificationStatus.textContent = status;
     elements.classificationResult.textContent = result;
     elements.classificationConfidence.textContent = confidence;
+}
+
+function clearClassificationOverlay() {
+    appState.classificationState = "idle";
+    elements.classificationOverlay.classList.remove("active");
+    elements.classificationStatus.textContent = "Ready to classify";
+    elements.classificationResult.textContent = "No result yet";
+    elements.classificationConfidence.textContent = "";
+}
+
+function handleClassificationGesture(state) {
+    const gestureNonce = Number(state.classification_gesture_nonce);
+
+    if (gestureNonce <= appState.lastClassificationGestureNonce) {
+        return;
+    }
+
+    appState.lastClassificationGestureNonce = gestureNonce;
+
+    if (appState.classificationState === "complete") {
+        clearClassificationOverlay();
+        return;
+    }
+
+    if (appState.classificationState === "idle") {
+        captureMapCenterCrop();
+    }
 }
 
 function getPngBlob(canvas) {
@@ -298,7 +327,7 @@ async function captureMapCenterCrop() {
         return;
     }
 
-    elements.classifyButton.disabled = true;
+    appState.classificationState = "running";
     setClassificationState("Capturing map area...");
 
     try {
@@ -356,15 +385,13 @@ async function captureMapCenterCrop() {
         const result = await classifyResponse.json();
         const confidence = `${(Number(result.confidence) * 100).toFixed(1)}% confidence`;
 
+        appState.classificationState = "complete";
         setClassificationState("Classification complete", result.category, confidence);
     } catch (error) {
+        appState.classificationState = "complete";
         setClassificationState("Classification failed", "Try again", error.message);
-    } finally {
-        elements.classifyButton.disabled = false;
     }
 }
-
-elements.classifyButton.addEventListener("click", captureMapCenterCrop);
 
 renderTrack(0, 5);
 pollState();
